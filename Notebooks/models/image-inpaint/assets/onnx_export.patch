@@ -1,0 +1,139 @@
+diff --git a/network.py b/network.py
+index ad2f9c4..de2151c 100644
+--- a/network.py
++++ b/network.py
+@@ -101,8 +101,8 @@ class GatedGenerator(nn.Module):
+             GatedConv2d(opt.latent_channels//2, opt.out_channels, 3, 1, 1, pad_type = opt.pad_type, activation = 'none', norm = opt.norm),
+             nn.Tanh()
+         )
+-        self.context_attention = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10,
+-                                                     fuse=True)
++        # self.context_attention = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10,
++        #                                              fuse=True)
+ 
+         
+     def forward(self, img, mask):
+@@ -119,7 +119,7 @@ class GatedGenerator(nn.Module):
+         refine_conv = self.refine_conv(second_in)     
+         refine_atten = self.refine_atten_1(second_in)
+         mask_s = nn.functional.interpolate(mask, (refine_atten.shape[2], refine_atten.shape[3]))
+-        refine_atten = self.context_attention(refine_atten, refine_atten, mask_s)
++        # refine_atten = self.context_attention(refine_atten, refine_atten, mask_s)
+         refine_atten = self.refine_atten_2(refine_atten)
+         second_out = torch.cat([refine_conv, refine_atten], dim=1)
+         second_out = self.refine_combine(second_out)
+diff --git a/network_module.py b/network_module.py
+index 3292ac3..631503d 100644
+--- a/network_module.py
++++ b/network_module.py
+@@ -330,8 +330,8 @@ class ContextualAttention(nn.Module):
+         k = self.fuse_k
+         scale = self.softmax_scale    # to fit the PyTorch tensor image value range
+         fuse_weight = torch.eye(k).view(1, 1, k, k)  # 1*1*k*k
+-        if self.use_cuda:
+-            fuse_weight = fuse_weight.cuda()
++        # if self.use_cuda:
++            # fuse_weight = fuse_weight.cuda()
+ 
+         for xi, wi, raw_wi in zip(f_groups, w_groups, raw_w_groups):
+             '''
+@@ -343,8 +343,8 @@ class ContextualAttention(nn.Module):
+             '''
+             # conv for compare
+             escape_NaN = torch.FloatTensor([1e-4])
+-            if self.use_cuda:
+-                escape_NaN = escape_NaN.cuda()
++            # if self.use_cuda:
++            #     escape_NaN = escape_NaN.cuda()
+             wi = wi[0]  # [L, C, k, k]
+             max_wi = torch.sqrt(reduce_sum(torch.pow(wi, 2) + escape_NaN, axis=[1, 2, 3], keepdim=True))
+             wi_normed = wi / max_wi
+diff --git a/test.py b/test.py
+index 54b0a9a..73f877e 100644
+--- a/test.py
++++ b/test.py
+@@ -10,7 +10,7 @@ if __name__ == "__main__":
+     # General parameters
+     parser.add_argument('--results_path', type = str, default = './results', help = 'testing samples path that is a folder')
+     parser.add_argument('--gan_type', type = str, default = 'WGAN', help = 'the type of GAN for training')
+-    parser.add_argument('--gpu_ids', type = str, default = "0", help = 'gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
++    parser.add_argument('--gpu_ids', type = str, default = "-1", help = 'gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
+     parser.add_argument('--cudnn_benchmark', type = bool, default = True, help = 'True for unchanged input data type')
+     # Training parameters
+     parser.add_argument('--epoch', type = int, default = 40, help = 'number of epochs of training')
+@@ -21,13 +21,13 @@ if __name__ == "__main__":
+     parser.add_argument('--out_channels', type = int, default = 3, help = 'output RGB image')
+     parser.add_argument('--latent_channels', type = int, default = 48, help = 'latent channels')
+     parser.add_argument('--pad_type', type = str, default = 'zero', help = 'the padding type')
+-    parser.add_argument('--activation', type = str, default = 'lrelu', help = 'the activation type')
+-    parser.add_argument('--norm', type = str, default = 'in', help = 'normalization type')
++    parser.add_argument('--activation', type = str, default = 'elu', help = 'the activation type')
++    parser.add_argument('--norm', type = str, default = 'none', help = 'normalization type')
+     parser.add_argument('--init_type', type = str, default = 'xavier', help = 'the initialization type')
+     parser.add_argument('--init_gain', type = float, default = 0.02, help = 'the initialization gain')
+     # Dataset parameters
+-    parser.add_argument('--baseroot', type = str, default = '../../inpainting/dataset/Places/img_set')
+-    parser.add_argument('--baseroot_mask', type = str, default = '../../inpainting/dataset/Places/img_set')
++    parser.add_argument('--baseroot', type = str, default = '.\test_data')
++    parser.add_argument('--baseroot_mask', type = str, default = '.\test_data_mask')
+     opt = parser.parse_args()
+     
+     
+@@ -40,3 +40,4 @@ if __name__ == "__main__":
+     if opt.gan_type == 'WGAN':
+         tester.WGAN_tester(opt)
+     
++   
+diff --git a/tester.py b/tester.py
+index cd963b3..de8ceb9 100644
+--- a/tester.py
++++ b/tester.py
+@@ -19,7 +19,7 @@ def WGAN_tester(opt):
+     def load_model_generator(net, epoch, opt):
+         model_name = 'deepfillv2_WGAN_G_epoch%d_batchsize%d.pth' % (epoch, 4)
+         model_name = os.path.join('pretrained_model', model_name)
+-        pretrained_dict = torch.load(model_name)
++        pretrained_dict = torch.load(model_name, map_location=torch.device('cpu'))
+         generator.load_state_dict(pretrained_dict)
+ 
+     # ----------------------------------------
+@@ -27,17 +27,16 @@ def WGAN_tester(opt):
+     # ----------------------------------------
+ 
+     # configurations
++    results_path = "output"
+     if not os.path.exists(results_path):
+         os.makedirs(results_path)
+ 
+     # Build networks
+     generator = utils.create_generator(opt).eval()
+-    print('-------------------------Loading Pretrained Model-------------------------')
+     load_model_generator(generator, opt.epoch, opt)
+-    print('-------------------------Pretrained Model Loaded-------------------------')
+ 
+     # To device
+-    generator = generator.cuda()
++    # generator = generator.cuda()
+     
+     # ----------------------------------------
+     #       Initialize training dataset
+@@ -54,9 +53,17 @@ def WGAN_tester(opt):
+     #            Testing
+     # ----------------------------------------
+     # Testing loop
++    dummy_input=torch.randn(1, 3, 512, 512)
++    dummy_mask=torch.randn(1, 1, 512, 512)
++    o1,o2 = generator(dummy_input,dummy_mask)
++    torch.onnx.export(generator, (dummy_input, dummy_mask), "C:\\Qualcomm\\AIStack\\models\\image-inpaint\\assets\\deepfillv2.onnx", opset_version=14, verbose=False)
++
++    
+     for batch_idx, (img, mask) in enumerate(dataloader):
+-        img = img.cuda()
+-        mask = mask.cuda()
++        # img = img.cuda()
++        # mask = mask.cuda()
++        print("img = ",img.shape)
++        print("mask = ",mask.shape)
+ 
+         # Generator output
+         with torch.no_grad():

@@ -1,0 +1,59 @@
+diff --git a/DMSHN_test.py b/DMSHN_test.py
+index df60bcd..81b8e3a 100644
+--- a/DMSHN_test.py
++++ b/DMSHN_test.py
+@@ -20,7 +20,7 @@ import torch.nn.functional as F
+ 
+ from torchvision.utils import save_image
+ 
+-from skimage.measure import compare_psnr,compare_ssim
++from skimage.metrics import peak_signal_noise_ratio as compare_psnr
+ from tqdm import tqdm
+ 
+ import math
+@@ -28,12 +28,12 @@ import numbers
+ import sys
+ 
+ import matplotlib.pyplot as plt
+-
++import torch
+ 
+ 
+ from DMSHN import DMSHN 
+ 
+-device = torch.device("cuda:0")
++device = torch.device("cpu")
+ 
+ 
+ feed_width = 1536
+@@ -50,9 +50,9 @@ os.makedirs('outputs/DMSHN',exist_ok=True)
+ 
+ 
+ with torch.no_grad():
+-    for i in tqdm(range(4400,4694)):
++    for i in tqdm(range(1)):
+ 
+-        image_path = '/media/data2/saikat/bokeh_data/Training/original/' + str(i) + '.jpg'   # change input path
++        image_path = 'C:\\Qualcomm\\AIStack\\models\\Background_Blur\\assets\\blur_' + str(i) + '.jpg'   # change input path
+ 
+         # Load image and preprocess
+         input_image = pil.open(image_path).convert('RGB')
+@@ -61,9 +61,13 @@ with torch.no_grad():
+         input_image = input_image.resize((feed_width, feed_height), pil.LANCZOS)
+         input_image = transforms.ToTensor()(input_image).unsqueeze(0)
+ 
++
+         # PREDICTION
+         input_image = input_image.to(device)
+ 
++        torch.onnx.export(bokehnet, input_image, "C:\\Qualcomm\\AIStack\\models\\Background_Blur\\assets\\dmshn.onnx", opset_version=11)
++
++
+         bok_pred = bokehnet(input_image)
+ 
+         bok_pred = F.interpolate(bok_pred,(original_height,original_width),mode = 'bilinear')
+@@ -75,3 +79,4 @@ with torch.no_grad():
+         del input_image
+     
+ 
++

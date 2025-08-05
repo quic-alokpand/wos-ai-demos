@@ -1,0 +1,115 @@
+diff --git a/datasets.py b/datasets.py
+index 43986eb..d673ee2 100644
+--- a/datasets.py
++++ b/datasets.py
+@@ -82,11 +82,11 @@ def dataset_info(dataset_name, is_linux=True):
+                 'yita': 0.3
+             },
+             'BIPED': {
+-                'img_height': 720, #720 # 1088
+-                'img_width': 1280, # 1280 5 1920
++                'img_height': 288, #720 # 1088
++                'img_width': 512, # 1280 5 1920
+                 'test_list': 'test_pair.lst',
+                 'train_list': 'train_rgb.lst',
+-                'data_dir': '/opt/dataset/BIPED',  # mean_rgb
++                'data_dir': 'C:\\Qualcomm\\AIStack\\models\\Edge_Detection\\assets\\',  # mean_rgb
+                 'yita': 0.5
+             },
+             'CLASSIC': {
+@@ -140,12 +140,12 @@ def dataset_info(dataset_name, is_linux=True):
+                          'train_list': 'train_pair.lst',
+                          'data_dir': 'C:/Users/xavysp/dataset/MDBD',  # mean_rgb
+                          'yita': 0.3},
+-            'BIPED': {'img_height': 720,  # 720
+-                      'img_width': 1280,  # 1280
+-                      'test_list': 'test_pair.lst',
+-                      'train_list': 'train_rgb.lst',
+-                      'data_dir': 'C:/Users/xavysp/dataset/BIPED',  # WIN: '../.../dataset/BIPED/edges'
+-                      'yita': 0.5},
++            'BIPED': { 'img_height': 288, #720 # 1088
++                            'img_width': 512, # 1280 5 1920
++                            'test_list': 'test_pair.lst',
++                            'train_list': 'train_rgb.lst',
++                            'data_dir': 'C:\\Qualcomm\\AIStack\\models\\Edge_Detection\\assets\\',  # mean_rgb
++                            'yita': 0.5},
+             'CLASSIC': {'img_height': 512,
+                         'img_width': 512,
+                         'test_list': None,
+@@ -488,3 +488,4 @@ class BipedDataset(Dataset):
+         img = torch.from_numpy(img.copy()).float()
+         gt = torch.from_numpy(np.array([gt])).float()
+         return img, gt
++
+diff --git a/main.py b/main.py
+index 732f6bd..5f35101 100644
+--- a/main.py
++++ b/main.py
+@@ -130,16 +130,18 @@ def test(checkpoint_path, dataloader, model, device, output_dir, args):
+             image_shape = sample_batched['image_shape']
+             print(f"input tensor shape: {images.shape}")
+             # images = images[:, [2, 1, 0], :, :]
++            #print("images = ",images)
+ 
+             end = time.perf_counter()
+             if device.type == 'cuda':
+                 torch.cuda.synchronize()
+             preds = model(images)
++            print("preds = ",preds[0].shape)
++            torch.onnx.export(model, images, "C:\\Qualcomm\\AIStack\\models\\Edge_Detection\\assets\\dexined_512_288.onnx", opset_version=11)
+             if device.type == 'cuda':
+                 torch.cuda.synchronize()
+             tmp_duration = time.perf_counter() - end
+             total_duration.append(tmp_duration)
+-
+             save_image_batch_to_disk(preds,
+                                      output_dir,
+                                      file_names,
+@@ -197,7 +199,7 @@ def parse_args():
+     parser = argparse.ArgumentParser(description='DexiNed trainer.')
+     parser.add_argument('--choose_test_data',
+                         type=int,
+-                        default=-1,
++                        default=0,
+                         help='Already set the dataset for testing choice: 0 - 8')
+     # ----------- test -------0--
+ 
+@@ -461,7 +463,7 @@ def main(args):
+                            device,
+                            img_test_dir,
+                            arg=args)
+-
++        
+         # Save model after end of every epoch
+         torch.save(model.module.state_dict() if hasattr(model, "module") else model.state_dict(),
+                    os.path.join(output_dir_epoch, '{0}_model.pth'.format(epoch)))
+@@ -479,3 +481,4 @@ def main(args):
+ if __name__ == '__main__':
+     args = parse_args()
+     main(args)
++
+diff --git a/model.py b/model.py
+index 5651b3d..30744ee 100755
+--- a/model.py
++++ b/model.py
+@@ -2,7 +2,6 @@ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ 
+-
+ def weight_init(m):
+     if isinstance(m, (nn.Conv2d,)):
+         # torch.nn.init.xavier_uniform_(m.weight, gain=1.0)
+@@ -211,7 +210,6 @@ class DexiNed(nn.Module):
+ 
+     def forward(self, x):
+         assert x.ndim == 4, x.shape
+-
+         # Block 1
+         block_1 = self.block_1(x)
+         block_1_side = self.side_1(block_1)
+@@ -284,3 +282,4 @@ if __name__ == '__main__':
+     #     output = model(input)
+     #     loss = nn.MSELoss()(output[-1], target)
+     #     loss.backward()
++
